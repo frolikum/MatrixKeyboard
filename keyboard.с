@@ -1,0 +1,140 @@
+
+#include "keyboard.h"
+#include "gpio.h"
+
+#define __REPETITION_RATE 			(uint16_t)(EXECUTION_RATE / REPETITION_RATE)
+
+uint8_t keymap[MAX_ROWS][MAX_COLS]=
+{
+	{'1', '2', '3', 'A'},
+
+	{'4', '5', '6', 'B'},
+
+	{'7', '8', '9', 'C'},
+
+	{'*', '0', '#', 'D'}
+};
+
+//*********************COLS************************
+uint16_t ColumnPinAray[MAX_COLS]={
+	KBD_PIN_C1,		
+	KBD_PIN_C2,
+	KBD_PIN_C3,
+	KBD_PIN_C4
+};
+
+GPIO_TypeDef * ColumnPortAray[MAX_COLS]={
+	KBD_PORT_C1,		
+	KBD_PORT_C2,
+	KBD_PORT_C3,
+	KBD_PORT_C4
+};
+
+//*********************ROWS************************
+uint16_t RowsPinAray[MAX_ROWS]={
+	KBD_PIN_R1,		
+	KBD_PIN_R2,
+	KBD_PIN_R3,
+	KBD_PIN_R4
+};
+
+GPIO_TypeDef * RowsPortAray[MAX_ROWS]={
+	KBD_PORT_R1,		
+	KBD_PORT_R2,
+	KBD_PORT_R3,
+	KBD_PORT_R4
+};
+//*********************************************
+
+void KBD_Init(void)
+{
+	uint8_t i;
+	GPIO_InitTypeDef GPIO_InitStruct;
+	
+	// Config all rows to outputPP
+	for(i = 0; i < MAX_ROWS; i++)
+	{
+		//Set low level 
+		HAL_GPIO_WritePin(RowsPortAray[i], RowsPinAray[i], GPIO_PIN_RESET);
+		
+		//Init
+		GPIO_InitStruct.Pin = RowsPinAray[i];
+		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+		HAL_GPIO_Init(RowsPortAray[i], &GPIO_InitStruct);
+	}
+	
+	// Config all Column to inputPD
+	for(i = 0; i < MAX_ROWS; i++)
+	{
+		GPIO_InitStruct.Pin = ColumnPinAray[i];
+		GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+		HAL_GPIO_Init(ColumnPortAray[i], &GPIO_InitStruct);
+	}
+}
+
+uint8_t KBD_Scan(void)
+{
+	static uint8_t activRow = 0, activColumn = 0;
+
+	uint8_t out = 0;
+	
+	if(activColumn < MAX_COLS)
+	{	
+		//read value on the activColumn*activRow
+		if(HAL_GPIO_ReadPin(ColumnPortAray[activColumn],ColumnPinAray[activColumn]))
+		{
+			out = keymap[activRow][activColumn];
+			// if press detect stop switch Column and Rows but keep send pressed symbol
+			if(out)return out;
+		}
+		activColumn++;
+	}
+	else
+	{	//Reset Column 
+		activColumn = 0;
+		
+		//Reset level on old row
+		HAL_GPIO_WritePin(RowsPortAray[activRow],RowsPinAray[activRow], GPIO_PIN_RESET);
+		
+		//go to next row
+		if(++activRow == MAX_ROWS)activRow = 0;
+		
+		//Set level on need row
+		HAL_GPIO_WritePin(RowsPortAray[activRow],RowsPinAray[activRow], GPIO_PIN_SET);
+	}
+	
+	return out;
+}
+
+uint8_t KBD_Handler(void)
+{
+static uint8_t prvSymb;
+static uint16_t repCnt = __REPETITION_RATE;	
+
+uint8_t out = 0;	
+uint8_t curSymb = KBD_Scan();
+	
+	if(curSymb)
+	{
+		if(curSymb == prvSymb)
+		{
+			if(++repCnt == __REPETITION_RATE)
+			{
+				repCnt = 0;
+				out = curSymb;				
+			}		
+		}
+		else
+		{
+			repCnt = 0;
+			//if first detekt
+			if(prvSymb == 0)out = curSymb;	
+		}
+	}	
+	
+	prvSymb = curSymb;
+	
+	return out;
+}
