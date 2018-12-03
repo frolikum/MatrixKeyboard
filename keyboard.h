@@ -8,7 +8,7 @@
 #define MAX_COLS		4
 
 #define REPETITION_RATE			2
-#define EXECUTION_RATE			1000
+#define EXECUTION_RATE			1000    //KBD_Handler() call frequency
 
 // Pin connection description
 //COLUMN
@@ -35,7 +35,25 @@
 
 //Exported function
 void KBD_Init(void);
+
+
+/*
+Function scan keyboard. If detected press - return symbul, else return zero.
+Only one point in the grid is polled per call.
+
+Example: for a full poll of the keyboard 4 * 4, the function must be called 16 times.
+If a key is detected, the function returns the character corresponding to the key. 
+The declaration of the character table in the file keyboard.с.
+Despite detecting a click, scanning continues further across the grid. 
+And the pressed symbol will be returned only at the moment of polling exactly its position.
+*/
 uint8_t KBD_Scan(void);
+
+/*
+Same as the KBD_Scan() function, but when a click is detected, 
+further scanning is performed only by the button being pressed, 
+and the character corresponding to this position is displayed with the periodicity specified in the macro REPETITION_RATE.
+*/
 uint8_t KBD_Handler(void);
 
 #endif //MTX_KBD
